@@ -1,7 +1,7 @@
 <?php
 
 /*
- * This file is part of parade-universal.
+ * This file is part of alchemy/worker-component.
  *
  * (c) Alchemy <info@alchemy.fr>
  *
