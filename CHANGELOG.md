@@ -4,7 +4,7 @@
   - No unreleased changes
 
 ## [0.1.1] - 2016-10-06
-### Adds
+### Added
   - Callable worker factory which allows worker creation using callables
   - License headers
 
