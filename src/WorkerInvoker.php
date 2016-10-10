@@ -44,7 +44,7 @@ class WorkerInvoker implements LoggerAwareInterface
      */
     private $processPool;
 
-    public function __construct(ProcessPool $processPool, $environment)
+    public function __construct(ProcessPool $processPool, $environment = false)
     {
         $this->binaryPath = $_SERVER['SCRIPT_NAME'];
         $this->environment = $environment;
@@ -69,14 +69,19 @@ class WorkerInvoker implements LoggerAwareInterface
      */
     public function invokeWorker($messageType, $payload)
     {
-        $process = $this->processPool->getWorkerProcess([
+        $args = [
             $this->binaryPath,
             $this->command,
-            sprintf('-e=%s', $this->environment),
             '-vv',
             $messageType,
             $this->createPayloadFile($payload)
-        ], getcwd());
+        ];
+
+        if ($this->environment) {
+            $args[] = sprintf('-e=%s', $this->environment);
+        }
+
+        $process = $this->processPool->getWorkerProcess($args, getcwd());
 
         $this->logger->debug('Invoking shell command: ' . $process->getCommandLine());
 
