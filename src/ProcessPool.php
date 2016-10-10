@@ -79,6 +79,8 @@ class ProcessPool implements LoggerAwareInterface
         foreach ($this->processes as $process) {
             if ($process->isRunning()) {
                 $runningProcesses[] = $process;
+            } else {
+                $process->stop(0);
             }
         }
 
