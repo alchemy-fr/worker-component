@@ -44,12 +44,22 @@ class WorkerInvoker implements LoggerAwareInterface
      */
     private $processPool;
 
+    /**
+     * @var bool
+     */
+    private $preservePayloads = false;
+
     public function __construct(ProcessPool $processPool, $environment = false)
     {
         $this->binaryPath = $_SERVER['SCRIPT_NAME'];
         $this->environment = $environment;
         $this->processPool = $processPool;
         $this->logger = new NullLogger();
+    }
+
+    public function preservePayloads()
+    {
+        $this->preservePayloads = true;
     }
 
     /**
@@ -79,6 +89,10 @@ class WorkerInvoker implements LoggerAwareInterface
 
         if ($this->environment) {
             $args[] = sprintf('-e=%s', $this->environment);
+        }
+
+        if ($this->preservePayloads) {
+            $args[] = '--preserve-payload';
         }
 
         $process = $this->processPool->getWorkerProcess($args, getcwd());
