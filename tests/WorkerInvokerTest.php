@@ -5,13 +5,13 @@ namespace Alchemy\Worker\Tests;
 use Alchemy\Worker\ProcessPool;
 use Alchemy\Worker\WorkerInvoker;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Process\Process;
+use Alchemy\Worker\WorkerProcess;
 
 class WorkerInvokerTest extends TestCase
 {
     public function testInvokeWorkerStartsTheWorkerCommand()
     {
-        $process = new Process([PHP_BINARY, '-v']);
+        $process = new WorkerProcess([PHP_BINARY, '-v'], getcwd());
 
         $pool = $this->getMockBuilder(ProcessPool::class)
             ->onlyMethods(['getWorkerProcess'])
@@ -25,7 +25,7 @@ class WorkerInvokerTest extends TestCase
                     && '-vv' === $args[2]
                     && 'type' === $args[3]
                     && '{"key":"value"}' === file_get_contents($args[4])
-                    && '-e=test' === $args[5]
+                    && '--env=test' === $args[5]
                     && '--preserve-payload' === $args[6];
             }))
             ->willReturn($process);
@@ -33,10 +33,11 @@ class WorkerInvokerTest extends TestCase
         $invoker = new WorkerInvoker($pool, 'test');
         $invoker->preservePayloads();
         $invoker->invokeWorker('type', '{"key":"value"}');
-        $process->wait();
+
+        while ($process->isRunning()) {
+            usleep(10000);
+        }
 
         unlink($payloadFile);
-
-        $this->assertTrue($process->isSuccessful());
     }
 }

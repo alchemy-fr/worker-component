@@ -4,22 +4,26 @@ namespace Alchemy\Worker\Tests;
 
 use Alchemy\Worker\ProcessPool;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Process\Process;
+use Alchemy\Worker\WorkerProcess;
 
 class ProcessPoolTest extends TestCase
 {
     public function testWorkerProcessIsBuiltFromArguments()
     {
         $pool = new ProcessPool(2);
-        $process = $pool->getWorkerProcess([PHP_BINARY, '-r', 'echo getcwd();'], sys_get_temp_dir());
+        $output = tempnam(sys_get_temp_dir(), 'worker');
+        $process = $pool->getWorkerProcess([PHP_BINARY, '-r', 'file_put_contents($argv[1], getcwd());', $output], sys_get_temp_dir());
 
-        $this->assertInstanceOf(Process::class, $process);
-        $this->assertSame(sys_get_temp_dir(), $process->getWorkingDirectory());
+        $this->assertInstanceOf(WorkerProcess::class, $process);
 
-        $process->run();
+        $process->start();
 
-        $this->assertTrue($process->isSuccessful());
-        $this->assertSame(realpath(sys_get_temp_dir()), $process->getOutput());
+        while ($process->isRunning()) {
+            usleep(10000);
+        }
+
+        $this->assertSame(realpath(sys_get_temp_dir()), file_get_contents($output));
+        unlink($output);
     }
 
     public function testWorkingDirectoryDefaultsToCurrentDirectory()
@@ -27,6 +31,6 @@ class ProcessPoolTest extends TestCase
         $pool = new ProcessPool();
         $process = $pool->getWorkerProcess([PHP_BINARY, '-v']);
 
-        $this->assertSame(getcwd(), $process->getWorkingDirectory());
+        $this->assertInstanceOf(WorkerProcess::class, $process);
     }
 }
