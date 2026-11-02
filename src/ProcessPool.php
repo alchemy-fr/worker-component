@@ -14,8 +14,6 @@ namespace Alchemy\Worker;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\ProcessBuilder;
 
 class ProcessPool implements LoggerAwareInterface
 {
@@ -26,7 +24,7 @@ class ProcessPool implements LoggerAwareInterface
     private $maxProcesses = 4;
 
     /**
-     * @var Process[]
+     * @var WorkerProcess[]
      */
     private $processes = [];
 
@@ -48,9 +46,8 @@ class ProcessPool implements LoggerAwareInterface
      * Sets a logger instance on the object
      *
      * @param LoggerInterface $logger
-     * @return null
      */
-    public function setLogger(LoggerInterface $logger)
+    public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
     }
@@ -58,18 +55,16 @@ class ProcessPool implements LoggerAwareInterface
     /**
      * @param array $processArguments
      * @param string|null $workingDirectory
-     * @return Process
+     * @return WorkerProcess
      */
     public function getWorkerProcess(array $processArguments, $workingDirectory = null)
     {
         $this->detachFinishedProcesses();
         $this->waitForNextSlot();
 
-        $builder = new ProcessBuilder($processArguments);
+        $process = new WorkerProcess($processArguments, $workingDirectory ?: getcwd());
 
-        $builder->setWorkingDirectory($workingDirectory ?: getcwd());
-
-        return ($this->processes[] = $builder->getProcess());
+        return ($this->processes[] = $process);
     }
 
     private function detachFinishedProcesses()
@@ -79,8 +74,6 @@ class ProcessPool implements LoggerAwareInterface
         foreach ($this->processes as $process) {
             if ($process->isRunning()) {
                 $runningProcesses[] = $process;
-            } else {
-                $process->stop(0);
             }
         }
 

@@ -14,8 +14,6 @@ namespace Alchemy\Worker;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
-use Symfony\Component\Process\ProcessBuilder;
 
 class WorkerInvoker implements LoggerAwareInterface
 {
@@ -66,9 +64,8 @@ class WorkerInvoker implements LoggerAwareInterface
      * Sets a logger instance on the object
      *
      * @param LoggerInterface $logger
-     * @return null
      */
-    public function setLogger(LoggerInterface $logger)
+    public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
     }
@@ -88,7 +85,7 @@ class WorkerInvoker implements LoggerAwareInterface
         ];
 
         if ($this->environment) {
-            $args[] = sprintf('-e=%s', $this->environment);
+            $args[] = sprintf('--env=%s', $this->environment);
         }
 
         if ($this->preservePayloads) {
@@ -99,14 +96,7 @@ class WorkerInvoker implements LoggerAwareInterface
 
         $this->logger->debug('Invoking shell command: ' . $process->getCommandLine());
 
-        try {
-            $process->start([$this, 'logWorkerOutput']);
-        } catch (ProcessRuntimeException $e) {
-            $process->stop();
-
-            throw new \RuntimeException(sprintf('Command "%s" failed: %s', $process->getCommandLine(),
-                $e->getMessage()), 0, $e);
-        }
+        $process->start();
     }
 
     private function createPayloadFile($payload)
@@ -120,12 +110,4 @@ class WorkerInvoker implements LoggerAwareInterface
         return $path;
     }
 
-    public function logWorkerOutput($stream, $output)
-    {
-        if ($stream == 'err') {
-            $this->logger->error($output);
-        } else {
-            $this->logger->info($output);
-        }
-    }
 }
