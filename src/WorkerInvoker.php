@@ -14,7 +14,6 @@ namespace Alchemy\Worker;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 
 class WorkerInvoker implements LoggerAwareInterface
 {
@@ -93,31 +92,11 @@ class WorkerInvoker implements LoggerAwareInterface
             $args[] = '--preserve-payload';
         }
 
-        $process = $this->processPool->getWorkerProcess($this->withInheritedOutput($args), getcwd());
-        // The dispatcher blocks while consuming and never reads the output of its workers:
-        // a worker writing more than the size of a pipe would hang forever.
-        $process->disableOutput();
+        $process = $this->processPool->getWorkerProcess($args, getcwd());
 
         $this->logger->debug('Invoking shell command: ' . $process->getCommandLine());
 
-        try {
-            $process->start();
-        } catch (ProcessRuntimeException $e) {
-            $process->stop();
-
-            throw new \RuntimeException(sprintf('Command "%s" failed: %s', $process->getCommandLine(),
-                $e->getMessage()), 0, $e);
-        }
-    }
-
-    /**
-     * Sends the output of the worker to the output of the dispatcher, for the container logs.
-     */
-    private function withInheritedOutput(array $args)
-    {
-        $script = 'if [ -w /proc/$PPID/fd/2 ]; then exec "$@" >>/proc/$PPID/fd/1 2>>/proc/$PPID/fd/2; fi; exec "$@" >/dev/null 2>&1';
-
-        return array_merge(['sh', '-c', $script, 'sh'], $args);
+        $process->start();
     }
 
     private function createPayloadFile($payload)
