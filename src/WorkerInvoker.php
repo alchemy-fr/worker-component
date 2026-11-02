@@ -86,25 +86,38 @@ class WorkerInvoker implements LoggerAwareInterface
         ];
 
         if ($this->environment) {
-            $args[] = sprintf('-e=%s', $this->environment);
+            $args[] = sprintf('--env=%s', $this->environment);
         }
 
         if ($this->preservePayloads) {
             $args[] = '--preserve-payload';
         }
 
-        $process = $this->processPool->getWorkerProcess($args, getcwd());
+        $process = $this->processPool->getWorkerProcess($this->withInheritedOutput($args), getcwd());
+        // The dispatcher blocks while consuming and never reads the output of its workers:
+        // a worker writing more than the size of a pipe would hang forever.
+        $process->disableOutput();
 
         $this->logger->debug('Invoking shell command: ' . $process->getCommandLine());
 
         try {
-            $process->start([$this, 'logWorkerOutput']);
+            $process->start();
         } catch (ProcessRuntimeException $e) {
             $process->stop();
 
             throw new \RuntimeException(sprintf('Command "%s" failed: %s', $process->getCommandLine(),
                 $e->getMessage()), 0, $e);
         }
+    }
+
+    /**
+     * Sends the output of the worker to the output of the dispatcher, for the container logs.
+     */
+    private function withInheritedOutput(array $args)
+    {
+        $script = 'if [ -w /proc/$PPID/fd/2 ]; then exec "$@" >>/proc/$PPID/fd/1 2>>/proc/$PPID/fd/2; fi; exec "$@" >/dev/null 2>&1';
+
+        return array_merge(['sh', '-c', $script, 'sh'], $args);
     }
 
     private function createPayloadFile($payload)
@@ -118,12 +131,4 @@ class WorkerInvoker implements LoggerAwareInterface
         return $path;
     }
 
-    public function logWorkerOutput($stream, $output)
-    {
-        if ($stream == 'err') {
-            $this->logger->error($output);
-        } else {
-            $this->logger->info($output);
-        }
-    }
 }
